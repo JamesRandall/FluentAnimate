@@ -9,6 +9,7 @@ namespace AccidentalFish.UIKit
     {
         IFluentAnimateTail Repeat();
         IFluentAnimateTail AllowUserInteraction();
+        IFluentAnimateTail WhenComplete(Action action);
         void Start();
     }
 
@@ -44,6 +45,7 @@ namespace AccidentalFish.UIKit
         private double? _repeaterDelay;
         private Action _repeaterAction;
         private bool _allowsUserInteraction;
+        private Action _whenCompleteAction;
 
         public static IFluentAnimate EaseOut(double duration, Action action)
         {
@@ -156,6 +158,12 @@ namespace AccidentalFish.UIKit
             return this;
         }
 
+        IFluentAnimateTail IFluentAnimateTail.WhenComplete(Action action)
+        {
+            _whenCompleteAction = action;
+            return this;
+        }
+
         void IFluentAnimateTail.Start()
         {
             Action nextAction = null;
@@ -195,7 +203,15 @@ namespace AccidentalFish.UIKit
             return () =>
                     UIView.Animate(animation.Duration, animation.Delay, options,
                                    () => animation.Action(),
-                                   () => { if (nextAction != null) nextAction(); else if (_repeaterAction != null) _repeaterAction(); });
+                                   () =>
+                                       {
+                                           if (nextAction != null) nextAction();
+                                           else
+                                           {
+                                               if (_whenCompleteAction != null) _whenCompleteAction();
+                                               if (_repeaterAction != null) _repeaterAction();
+                                           }
+                                       });
         }
 
         private void AddActionWithPreviousDuration(Action action, UIViewAnimationOptions animationOptions)
