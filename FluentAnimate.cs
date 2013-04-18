@@ -8,11 +8,26 @@ namespace AccidentalFish.UIKit
     public interface IFluentAnimateTail
     {
         IFluentAnimateTail Repeat();
-        IFluentAnimateTail Autoreverse();
+        IFluentAnimateTail AllowUserInteraction();
         void Start();
     }
 
-    public class FluentAnimate : IFluentAnimateTail
+    public interface IFluentAnimate : IFluentAnimateTail
+    {
+        IFluentAnimate Then { get; }
+        IFluentAnimate After(double delay);
+        IFluentAnimate AutoReverse();
+        IFluentAnimate EaseIn(Action action);
+        IFluentAnimate EaseIn(double duration, Action action);
+        IFluentAnimate EaseOut(double duration, Action action);
+        IFluentAnimate EaseOut(Action action);
+        IFluentAnimate Linear(double duration, Action action);
+        IFluentAnimate Linear(Action action);
+        IFluentAnimate EaseInOut(double duration, Action action);
+        IFluentAnimate EaseInOut(Action action);
+    }
+
+    public class FluentAnimate : IFluentAnimate
     {
         private struct Animation
         {
@@ -20,123 +35,158 @@ namespace AccidentalFish.UIKit
             public Action Action;
             public double Delay;
             public UIViewAnimationOptions AnimationOptions;
+            public bool AutoReverses;
         }
 
         private readonly Stack<Animation> _actions = new Stack<Animation>();
         private bool _repeats;
-        private bool _reverses;
         private double? _nextDelay;
+        private double? _repeaterDelay;
         private Action _repeaterAction;
+        private bool _allowsUserInteraction;
 
-        public static FluentAnimate EaseOut(double duration, Action action)
+        public static IFluentAnimate EaseOut(double duration, Action action)
         {
-            FluentAnimate animator = new FluentAnimate();
-            animator.ThenEaseOut(duration, action);
+            IFluentAnimate animator = new FluentAnimate();
+            animator.EaseOut(duration, action);
             return animator;
         }
 
-        public static FluentAnimate EaseIn(double duration, Action action)
+        public static IFluentAnimate EaseIn(double duration, Action action)
         {
-            FluentAnimate animator = new FluentAnimate();
-            animator.ThenEaseIn(duration, action);
+            IFluentAnimate animator = new FluentAnimate();
+            animator.EaseIn(duration, action);
             return animator;
         }
 
-        public static FluentAnimate EaseInOut(double duration, Action action)
+        public static IFluentAnimate EaseInOut(double duration, Action action)
         {
-            FluentAnimate animator = new FluentAnimate();
-            animator.ThenEaseIn(duration, action);
+            IFluentAnimate animator = new FluentAnimate();
+            animator.EaseIn(duration, action);
             return animator;
         }
 
-        public static FluentAnimate Linear(double duration, Action action)
+        public static IFluentAnimate Linear(double duration, Action action)
         {
-            FluentAnimate animator = new FluentAnimate();
-            animator.ThenEaseIn(duration, action);
+            IFluentAnimate animator = new FluentAnimate();
+            animator.EaseIn(duration, action);
             return animator;
         }
 
-        public FluentAnimate AfterDelay(double delay)
+        #region IFluentAnimate implementation
+
+        IFluentAnimate IFluentAnimate.After(double delay)
         {
             _nextDelay = delay;
             return this;
         }
 
-        public FluentAnimate ThenEaseIn(Action action)
+        IFluentAnimate IFluentAnimate.Then { get { return this; }}
+        
+        IFluentAnimate IFluentAnimate.EaseIn(Action action)
         {
             AddActionWithPreviousDuration(action, UIViewAnimationOptions.CurveEaseIn);
             return this;
         }
 
-        public FluentAnimate ThenEaseIn(double duration, Action action)
+        IFluentAnimate IFluentAnimate.EaseIn(double duration, Action action)
         {
             AddActionWithDuration(action, duration, UIViewAnimationOptions.CurveEaseIn);
             return this;
         }
 
-        public FluentAnimate ThenEaseOut(Action action)
+        IFluentAnimate IFluentAnimate.EaseOut(Action action)
         {
             AddActionWithPreviousDuration(action, UIViewAnimationOptions.CurveEaseOut);
             return this;
         }
 
-        public FluentAnimate ThenEaseOut(double duration, Action action)
+        IFluentAnimate IFluentAnimate.EaseOut(double duration, Action action)
         {
             AddActionWithDuration(action, duration, UIViewAnimationOptions.CurveEaseOut);
             return this;
         }
 
-        public FluentAnimate ThenEaseInOut(Action action)
+        IFluentAnimate IFluentAnimate.EaseInOut(Action action)
         {
             AddActionWithPreviousDuration(action, UIViewAnimationOptions.CurveEaseInOut);
             return this;
         }
 
-        public FluentAnimate ThenEaseInOut(double duration, Action action)
+        IFluentAnimate IFluentAnimate.EaseInOut(double duration, Action action)
         {
             AddActionWithDuration(action, duration, UIViewAnimationOptions.CurveEaseInOut);
             return this;
         }
 
-        public FluentAnimate ThenLinear(Action action)
+        IFluentAnimate IFluentAnimate.Linear(Action action)
         {
             AddActionWithPreviousDuration(action, UIViewAnimationOptions.CurveLinear);
             return this;
         }
 
-        public FluentAnimate ThenLinear(double duration, Action action)
+        IFluentAnimate IFluentAnimate.Linear(double duration, Action action)
         {
             AddActionWithDuration(action, duration, UIViewAnimationOptions.CurveLinear);
             return this;
         }
 
-        public IFluentAnimateTail Repeat()
+        IFluentAnimate IFluentAnimate.AutoReverse()
         {
+            Animation animation = _actions.Pop();
+            animation.AutoReverses = true;
+            _actions.Push(animation);
+            return this;
+        }
+
+        #endregion
+
+        #region IFluentAnimateTail implementation
+
+        IFluentAnimateTail IFluentAnimateTail.Repeat()
+        {
+            _repeaterDelay = _nextDelay;
             _repeats = true;
             return this;
         }
 
-        public IFluentAnimateTail Autoreverse()
+        IFluentAnimateTail IFluentAnimateTail.AllowUserInteraction()
         {
-            _reverses = true;
+            _allowsUserInteraction = true;
             return this;
         }
 
-        public void Start()
+        void IFluentAnimateTail.Start()
         {
             Action nextAction = null;
-            bool isEmpty = false;
+            bool stackIsEmpty;
             do
             {
                 Animation animation = _actions.Pop();
-                isEmpty = !_actions.Any();
+                stackIsEmpty = !_actions.Any();
                 UIViewAnimationOptions options = animation.AnimationOptions;
-                if (isEmpty && _reverses) options |= UIViewAnimationOptions.Autoreverse;
+                if (_allowsUserInteraction) options = options | UIViewAnimationOptions.AllowUserInteraction;
+                if (animation.AutoReverses) options |= UIViewAnimationOptions.Autoreverse;
                 nextAction = CreateChainedAnimationAction(animation, options, nextAction);
-                if (isEmpty && _repeats) _repeaterAction = nextAction;
-            } while (!isEmpty);
+                if (stackIsEmpty && _repeats)
+                {
+                    if (_repeaterDelay.HasValue)
+                    {
+                        animation.Delay = _repeaterDelay.Value;
+                        _repeaterAction = CreateChainedAnimationAction(animation, options, nextAction);
+                    }
+                    else
+                    {
+                        _repeaterAction = nextAction;
+                    }
+                    _repeaterDelay = null;
+                }
+                _nextDelay = null;
+            } while (!stackIsEmpty);
             nextAction();
         }
+
+        #endregion
 
         #region Helpers
 
@@ -162,7 +212,6 @@ namespace AccidentalFish.UIKit
                                   Duration = duration,
                                   Delay = _nextDelay.HasValue ? _nextDelay.Value : 0
                               });
-            _nextDelay = null;
         }
 
         #endregion

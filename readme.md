@@ -8,11 +8,13 @@ In the meantime its pretty simply to use. Just add the FluentAnimate.cs file to 
 
     FluentAnimate
       .EaseIn(0.5, () => _button.Center = new PointF(50, 50))
-      .ThenEaseInOut(() => _button.Center = new PointF(50, 250))
-      .ThenEaseOut(() => _button.Center = new PointF(250, 250))
-      .ThenLinear(() => _button.Center = new PointF(250, 50))
-      .Repeat()
+      .Then.EaseInOut(() => _button.Center = new PointF(50, 250))
+      .Then.EaseOut(() => _button.Center = new PointF(250, 250))
+      .Then.Linear(() => _button.Center = new PointF(250, 50))
+      .Then.After(3.0).Repeat()
       .Start();
+
+The .Then is optional.
 
 ## License
 
