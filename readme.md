@@ -9,12 +9,15 @@ In the meantime its pretty simply to use. Just add the FluentAnimate.cs file to 
     FluentAnimate
       .EaseIn(0.5, () => _button.Center = new PointF(50, 50))
       .Then.EaseInOut(() => _button.Center = new PointF(50, 250))
+	  .Then.Do(() => Console.WriteLine("hello"))
       .Then.EaseOut(() => _button.Center = new PointF(250, 250))
       .Then.Linear(() => _button.Center = new PointF(250, 50))
       .Then.After(3.0).Repeat()
       .Start();
 
 The .Then is optional.
+
+.Do allows you to run actions in the chain that are not executed in the context of an animation.
 
 ## License
 

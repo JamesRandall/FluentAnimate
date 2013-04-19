@@ -16,6 +16,7 @@ namespace AccidentalFish.UIKit
     public interface IFluentAnimate : IFluentAnimateTail
     {
         IFluentAnimate Then { get; }
+        IFluentAnimate Do(Action action);
         IFluentAnimate After(double delay);
         IFluentAnimate AutoReverse();
         IFluentAnimate EaseIn(Action action);
@@ -32,6 +33,7 @@ namespace AccidentalFish.UIKit
     {
         private struct Animation
         {
+            public bool IsActionOnly;
             public double Duration;
             public Action Action;
             public double Delay;
@@ -83,8 +85,8 @@ namespace AccidentalFish.UIKit
             return this;
         }
 
-        IFluentAnimate IFluentAnimate.Then { get { return this; }}
-        
+        IFluentAnimate IFluentAnimate.Then { get { return this; } }
+
         IFluentAnimate IFluentAnimate.EaseIn(Action action)
         {
             AddActionWithPreviousDuration(action, UIViewAnimationOptions.CurveEaseIn);
@@ -130,6 +132,12 @@ namespace AccidentalFish.UIKit
         IFluentAnimate IFluentAnimate.Linear(double duration, Action action)
         {
             AddActionWithDuration(action, duration, UIViewAnimationOptions.CurveLinear);
+            return this;
+        }
+
+        IFluentAnimate IFluentAnimate.Do(Action action)
+        {
+            AddDoAction(action);
             return this;
         }
 
@@ -200,18 +208,31 @@ namespace AccidentalFish.UIKit
 
         private Action CreateChainedAnimationAction(Animation animation, UIViewAnimationOptions options, Action nextAction)
         {
+            if (animation.IsActionOnly)
+            {
+                return () =>
+                {
+                    animation.Action();
+                    if (nextAction != null) nextAction();
+                    else
+                    {
+                        if (_whenCompleteAction != null) _whenCompleteAction();
+                        if (_repeaterAction != null) _repeaterAction();
+                    }
+                };
+            }
             return () =>
                     UIView.Animate(animation.Duration, animation.Delay, options,
                                    () => animation.Action(),
                                    () =>
+                                   {
+                                       if (nextAction != null) nextAction();
+                                       else
                                        {
-                                           if (nextAction != null) nextAction();
-                                           else
-                                           {
-                                               if (_whenCompleteAction != null) _whenCompleteAction();
-                                               if (_repeaterAction != null) _repeaterAction();
-                                           }
-                                       });
+                                           if (_whenCompleteAction != null) _whenCompleteAction();
+                                           if (_repeaterAction != null) _repeaterAction();
+                                       }
+                                   });
         }
 
         private void AddActionWithPreviousDuration(Action action, UIViewAnimationOptions animationOptions)
@@ -222,12 +243,21 @@ namespace AccidentalFish.UIKit
         private void AddActionWithDuration(Action action, double duration, UIViewAnimationOptions animationOptions)
         {
             _actions.Push(new Animation
-                              {
-                                  Action = action,
-                                  AnimationOptions = animationOptions,
-                                  Duration = duration,
-                                  Delay = _nextDelay.HasValue ? _nextDelay.Value : 0
-                              });
+            {
+                Action = action,
+                AnimationOptions = animationOptions,
+                Duration = duration,
+                Delay = _nextDelay.HasValue ? _nextDelay.Value : 0
+            });
+        }
+
+        private void AddDoAction(Action action)
+        {
+            _actions.Push(new Animation
+            {
+                Action = action,
+                IsActionOnly = true
+            });
         }
 
         #endregion

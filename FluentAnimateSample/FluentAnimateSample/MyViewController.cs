@@ -42,6 +42,7 @@ namespace FluentAnimateSample
             FluentAnimate
                 .EaseIn(0.5, () => _button.Center = new PointF(ButtonWidth/2, ButtonHeight/2))
                 .Then.EaseInOut(() => _button.Center = new PointF(ButtonWidth/2, View.Bounds.Height - ButtonHeight/2))
+                .Then.Do(() => Console.WriteLine("hello"))
                 .Then.EaseOut(() => _button.Center = new PointF(View.Bounds.Width - ButtonWidth / 2, View.Bounds.Height - ButtonHeight / 2))
                 .Then.Linear(() => _button.Center = new PointF(View.Bounds.Width - ButtonWidth / 2, ButtonHeight / 2))
                 .Then.After(3.0)
